@@ -2,7 +2,8 @@ import json
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from nltk.tokenize import word_tokenize
-
+import nltk
+nltk.download('punkt')
 @csrf_exempt
 def process_text(request):
     if request.method == 'POST':
