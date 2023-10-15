@@ -1,32 +1,54 @@
 import json
+import string
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from nltk.tokenize import word_tokenize
+from nltk.corpus import stopwords
 import nltk
+import spacy
+# bibliotheque de tokenization
+# nltk.download('punkt')
 
-#bibliotheque de tokenization
-nltk.download('punkt')
-#ignorer les mesures de securité csrf
+# Get the French stop words list
+# nltk.download('stopwords')
+
+# Define the French stop words set
+french_stopwords = set(stopwords.words('french'))
+nlp = spacy.load('fr_core_news_md')
+# Ignore CSRF security measures
+
+
 @csrf_exempt
 def process_text(request):
+    contractions = ["l'", "d'", "j'", "m'", "n'", "s'", "t'", "qu'"]
     if request.method == 'POST':
 
-        #lecture des données depuis la méthode POST en assument que le fichier=file
         uploaded_file = request.FILES['file']
-        
-        #transformation du binaire vers string
-        content = uploaded_file.read().decode('utf-8')
-        
-        # transformation du texte vers des tokens (tokenize the text), le resultat est une liste de mots
-        tokens = word_tokenize(content)
-        
-        # creation du inverted index
-        inverted_index = {} #dictionnaire
-        for idx, token in enumerate(tokens):
-            if token not in inverted_index:
-                inverted_index[token] = [idx]
-            else:
-                inverted_index[token].append(idx)
 
-        # Serialisation et renvoie de inverted_index
+        content = uploaded_file.read().decode('utf-8')
+
+        tokens = list(enumerate(word_tokenize(content)))
+        lemmas = {}
+       # content = content.translate(str.maketrans('', '', string.punctuation))
+
+        with open('app\stop_words_french.json', 'r') as json_file:
+            stp_words = set(json.load(json_file))
+
+        inverted_index = {}
+        for idx, (position, token) in enumerate(tokens):
+            for item in contractions:  # suppression des détermiants
+                if token.startswith(item):
+                    token = token[len(item):]
+            if token.lower() not in stp_words and token.lower() not in ['»', '«', 'à'] and token.lower() not in string.punctuation:
+                doc = nlp(token)
+                for word in doc:
+                    lemmas[word.text] = word.lemma_
+                for token, lemma in lemmas.items():
+                   # print(f"{token} : {lemma}")
+                    if lemma not in inverted_index:
+                        inverted_index[lemma] = [position]
+                    else:
+                        inverted_index[lemma].append(position)
+            lemmas.clear()            
+           
         return JsonResponse({'inverted_index': inverted_index})
