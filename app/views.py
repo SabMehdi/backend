@@ -6,6 +6,7 @@ from nltk.tokenize import word_tokenize
 from nltk.corpus import stopwords
 import nltk
 import spacy
+import re
 # bibliotheque de tokenization
 # nltk.download('punkt')
 
@@ -20,14 +21,18 @@ nlp = spacy.load('fr_core_news_md')
 
 @csrf_exempt
 def process_text(request):
-    contractions = ["l'", "d'", "j'", "m'", "n'", "s'", "t'", "qu'"]
     if request.method == 'POST':
 
         uploaded_file = request.FILES['file']
 
         content = uploaded_file.read().decode('utf-8')
 
-        tokens = list(enumerate(word_tokenize(content)))
+        token_pattern =r"\w+(?:-\w+)*|\."
+
+# Tokenize the content using the regular expression pattern
+        tokens = list(enumerate(re.findall(token_pattern, content)))
+        print(tokens)
+
         lemmas = {}
        # content = content.translate(str.maketrans('', '', string.punctuation))
 
@@ -36,9 +41,6 @@ def process_text(request):
 
         inverted_index = {}
         for idx, (position, token) in enumerate(tokens):
-            for item in contractions:  # suppression des détermiants
-                if token.startswith(item):
-                    token = token[len(item):]
             if token.lower() not in stp_words and token.lower() not in ['»', '«', 'à'] and token.lower() not in string.punctuation:
                 doc = nlp(token)
                 for word in doc:
