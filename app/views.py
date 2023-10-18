@@ -7,6 +7,8 @@ from nltk.corpus import stopwords
 import nltk
 import spacy
 import re
+from django.http import HttpResponse
+
 # bibliotheque de tokenization
 # nltk.download('punkt')
 
@@ -29,16 +31,18 @@ def process_text(request):
 
         token_pattern =r"\w+(?:-\w+)*|\."
 
-# Tokenize the content using the regular expression pattern
+        
         tokens = list(enumerate(re.findall(token_pattern, content)))
-        print(tokens)
+        #print(tokens)
 
         lemmas = {}
        # content = content.translate(str.maketrans('', '', string.punctuation))
 
         with open('app\stop_words_french.json', 'r') as json_file:
             stp_words = set(json.load(json_file))
-
+        print(len(stp_words))
+        for words in stp_words:
+            print(words)
         inverted_index = {}
         for idx, (position, token) in enumerate(tokens):
             if token.lower() not in stp_words and token.lower() not in ['»', '«', 'à'] and token.lower() not in string.punctuation:
@@ -46,7 +50,7 @@ def process_text(request):
                 for word in doc:
                     lemmas[word.text] = word.lemma_
                 for token, lemma in lemmas.items():
-                   # print(f"{token} : {lemma}")
+                    #print(f"{token} : {lemma}")
                     if lemma not in inverted_index:
                         inverted_index[lemma] = [position]
                     else:
@@ -54,3 +58,6 @@ def process_text(request):
             lemmas.clear()            
            
         return JsonResponse({'inverted_index': inverted_index})
+
+def index(request):
+    return HttpResponse("Welcome to My Django App")

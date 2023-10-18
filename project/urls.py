@@ -20,5 +20,5 @@ from app import views
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/process-text/', views.process_text, name='process_text'),
-
-]
+    path('', views.index, name='index'),  # Add this line for the root URL
+]   
