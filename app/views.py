@@ -40,15 +40,13 @@ def process_text(request):
 
         with open('app\stop_words_french.json', 'r') as json_file:
             stp_words = set(json.load(json_file))
-        print(len(stp_words))
-        for words in stp_words:
-            print(words)
         inverted_index = {}
         for idx, (position, token) in enumerate(tokens):
-            if token.lower() not in stp_words and token.lower() not in ['»', '«', 'à'] and token.lower() not in string.punctuation:
+            if token.lower() not in stp_words and token.lower() not in ['»', '«', 'à'] and token.lower() not in string.punctuation and token.isalpha():
                 doc = nlp(token)
                 for word in doc:
-                    lemmas[word.text] = word.lemma_
+                    if(not word.pos_=='VERB'):
+                        lemmas[word.text] = word.lemma_
                 for token, lemma in lemmas.items():
                     #print(f"{token} : {lemma}")
                     if lemma not in inverted_index:
@@ -56,7 +54,6 @@ def process_text(request):
                     else:
                         inverted_index[lemma].append(position)
             lemmas.clear()            
-           
         return JsonResponse({'inverted_index': inverted_index})
 
 def index(request):
