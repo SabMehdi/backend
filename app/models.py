@@ -1,3 +1,7 @@
 from django.db import models
 
-# Create your models here.
+class FileAnalysis(models.Model):
+    file_path = models.FilePathField(path='uploads/', recursive=True)
+    inverted_index = models.JSONField()
+    class Meta:
+        app_label = 'app'

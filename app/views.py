@@ -8,7 +8,7 @@ import nltk
 import spacy
 import re
 from django.http import HttpResponse
-
+from .models import FileAnalysis
 # bibliotheque de tokenization
 # nltk.download('punkt')
 
@@ -53,7 +53,10 @@ def process_text(request):
                         inverted_index[lemma] = [position]
                     else:
                         inverted_index[lemma].append(position)
-            lemmas.clear()            
+            lemmas.clear() 
+        print(inverted_index)
+        file_analysis = FileAnalysis(file_path=uploaded_file, inverted_index=inverted_index)
+        file_analysis.save()          
         return JsonResponse({'inverted_index': inverted_index})
 
 def index(request):
