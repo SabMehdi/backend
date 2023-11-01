@@ -42,7 +42,8 @@ def process_text(request):
             stp_words = set(json.load(json_file))
         inverted_index = {}
         for idx, (position, token) in enumerate(tokens):
-            if token.lower() not in stp_words and token.lower() not in ['»', '«', 'à'] and token.lower() not in string.punctuation and token.isalpha():
+            token=token.lower()
+            if token not in stp_words and token not in ['»', '«', 'à'] and token not in string.punctuation and token.isalpha():
                 doc = nlp(token)
                 for word in doc:
                     if(not word.pos_=='VERB'):
@@ -54,10 +55,25 @@ def process_text(request):
                     else:
                         inverted_index[lemma].append(position)
             lemmas.clear() 
-        print(inverted_index)
         file_analysis = FileAnalysis(file_path=uploaded_file, inverted_index=inverted_index)
         file_analysis.save()          
         return JsonResponse({'inverted_index': inverted_index})
 
 def index(request):
     return HttpResponse("Welcome to My Django App")
+
+@csrf_exempt
+def get_file_names(request):
+    file_names = [result.file_path for result in FileAnalysis.objects.all()]
+    print(file_names)
+    return JsonResponse(file_names, safe=False)
+    
+@csrf_exempt
+def get_inverted_index(request, file_name):
+    try:
+        lemmatization_result = FileAnalysis.objects.get(file_path=file_name)
+        inverted_index = lemmatization_result.inverted_index  # Access the correct attribute
+        print(inverted_index)  # This line is for debugging
+        return JsonResponse(inverted_index, safe=False)
+    except FileAnalysis.DoesNotExist:
+        return JsonResponse({'error': 'File not found'}, status=404)

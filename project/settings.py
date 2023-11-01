@@ -25,9 +25,13 @@ SECRET_KEY = 'django-insecure-61r&_p!&=voxg&fi(68d9z(q9vd7p#iz!*7p#=n7ay#9z!cv_s
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['*']
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:3000",  # This will allow only specific origins
+]
 
-
+# Optional: Allow credentials (cookies, authorization headers) to be included in the requests
+CORS_ALLOW_CREDENTIALS = True
 # Application definition
 
 INSTALLED_APPS = [
@@ -39,7 +43,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'corsheaders',
     'app'
-]
+] 
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
@@ -50,6 +54,7 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'corsheaders.middleware.CorsMiddleware',
+    
 ]
 
 ROOT_URLCONF = 'project.urls'
@@ -124,10 +129,3 @@ STATIC_URL = 'static/'
 # https://docs.djangoproject.com/en/4.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
-
-CORS_ALLOWED_ORIGINS = [
-    "http://localhost:3000",  # Add the URL of your React frontend
-]
-
-# Optional: Allow credentials (cookies, authorization headers) to be included in the requests
-CORS_ALLOW_CREDENTIALS = True
