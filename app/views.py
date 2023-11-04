@@ -10,6 +10,8 @@ import spacy
 import re
 from django.http import HttpResponse
 from .models import FileAnalysis
+import hashlib
+
 # bibliotheque de tokenization
 # nltk.download('punkt')
 
@@ -28,10 +30,14 @@ def process_text(request):
         uploaded_file = request.FILES['file']
         content = uploaded_file.read().decode('utf-8')
 
+        file_hash = hashlib.sha256(content.encode('utf-8')).hexdigest()
+        if FileAnalysis.objects.filter(file_hash=file_hash).exists():
+            return JsonResponse({'error': 'File has already been analyzed'}, status=400)
+
+
         with open('app/stop_words_french.json', 'r') as json_file:
             stp_words = set(json.load(json_file))
             stp_words = set(unidecode.unidecode(word).lower() for word in stp_words)
-        print(f"Loaded stopwords: {stp_words}")  # Debugging line
 
         tokens = content.split()
         inverted_index = {}
@@ -40,9 +46,7 @@ def process_text(request):
             cleaned_token = token.lower().strip(string.punctuation)
             unaccented_token = unidecode.unidecode(cleaned_token)  # Normalize for comparison
 
-            if unaccented_token in stp_words:
-                print(f"Filtered out: {cleaned_token}")  # Debugging line
-            elif cleaned_token.isalpha():
+            if cleaned_token.isalpha():
                 doc = nlp(cleaned_token)
                 lemma = [word.lemma_ for word in doc if not word.pos_ == 'VERB']
 
@@ -53,7 +57,7 @@ def process_text(request):
                     else:
                         inverted_index[lemma].append(position)
 
-        file_analysis = FileAnalysis(file_path=uploaded_file, inverted_index=inverted_index)
+        file_analysis = FileAnalysis(file_path=uploaded_file, file_hash=file_hash,inverted_index=inverted_index)
         file_analysis.save()
 
         return JsonResponse({'inverted_index': inverted_index})
