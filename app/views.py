@@ -11,6 +11,7 @@ import re
 from django.http import HttpResponse
 from .models import FileAnalysis
 import hashlib
+from django.db.models import Q
 
 # bibliotheque de tokenization
 # nltk.download('punkt')
@@ -57,7 +58,7 @@ def process_text(request):
                     else:
                         inverted_index[lemma].append(position)
 
-        file_analysis = FileAnalysis(file_path=uploaded_file, file_hash=file_hash,inverted_index=inverted_index)
+        file_analysis = FileAnalysis(file_path=uploaded_file, file_hash=file_hash,file_content=content,inverted_index=inverted_index)
         file_analysis.save()
 
         return JsonResponse({'inverted_index': inverted_index})
@@ -80,3 +81,46 @@ def get_inverted_index(request, file_name):
         return JsonResponse(inverted_index, safe=False)
     except FileAnalysis.DoesNotExist:
         return JsonResponse({'error': 'File not found'}, status=404)
+
+@csrf_exempt
+def autocomplete(request):
+    # Get the query from the request
+    query = request.GET.get('q', '')
+
+    # Search for files where the file_content contains the query
+    # Adjust the query to match the structure of your data
+    results = FileAnalysis.objects.filter(
+        Q(file_content__icontains=query) | 
+        Q(file_path__icontains=query)
+    ).values('id', 'file_path', 'file_content')[:10]  # Limit to 10 results for example
+
+    # Format the results
+    suggestions = [
+        {
+            'id': result['id'],
+            'name': result['file_path'],
+            'content_preview': result['file_content'][:100]  # Preview of the content
+        }
+        for result in results
+    ]
+
+    # Return the suggestions as JSON
+    return JsonResponse(suggestions, safe=False)
+
+@csrf_exempt
+def document_preview(request):
+    word = request.GET.get('word', '')
+    if word:
+        # Fetch documents containing the word and create previews
+        documents = FileAnalysis.objects.filter(
+            inverted_index__has_key=word
+        )
+        previews = [
+            {
+                'title': doc.file_path,
+                'text': '...'.join(doc.inverted_index[word][:3])  # Just an example, adjust as needed
+            }
+            for doc in documents
+        ]
+        return JsonResponse(previews, safe=False)
+    return JsonResponse([], safe=False)

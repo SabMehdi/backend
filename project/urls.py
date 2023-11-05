@@ -8,5 +8,7 @@ urlpatterns = [
     path('', views.index, name='index'),  # Add this line for the root URL
     path('api/get-file-names/', views.get_file_names, name='get_file_names'),
     path('api/get-inverted-index/<str:file_name>', views.get_inverted_index, name='get_inverted_index'),
+    path('api/autocomplete/', views.autocomplete, name='autocomplete'),
+    path('api/document-preview/', views.document_preview, name='document_preview'),
 
 ]   
