@@ -12,6 +12,7 @@ from django.http import HttpResponse
 from .models import FileAnalysis
 import hashlib
 from django.db.models import Q
+from django.db.models.expressions import RawSQL
 
 # bibliotheque de tokenization
 # nltk.download('punkt')
@@ -46,12 +47,12 @@ def process_text(request):
         for position, token in enumerate(tokens):
             cleaned_token = token.lower().strip(string.punctuation)
             unaccented_token = unidecode.unidecode(cleaned_token)  # Normalize for comparison
-
+            
             if cleaned_token.isalpha():
                 doc = nlp(cleaned_token)
                 lemma = [word.lemma_ for word in doc if not word.pos_ == 'VERB']
 
-                if lemma:
+                if lemma and len(lemma[0])>2:
                     lemma = lemma[0]
                     if lemma not in inverted_index:
                         inverted_index[lemma] = [position]
@@ -82,27 +83,47 @@ def get_inverted_index(request, file_name):
     except FileAnalysis.DoesNotExist:
         return JsonResponse({'error': 'File not found'}, status=404)
 
-@csrf_exempt
+
+# ... rest of your imports and code ...
+
+csrf_exempt
 def autocomplete(request):
     # Get the query from the request
-    query = request.GET.get('q', '')
+    query = request.GET.get('q', '').lower()
 
-    # Search for files where the file_content contains the query
-    # Adjust the query to match the structure of your data
-    results = FileAnalysis.objects.filter(
-        Q(file_content__icontains=query) | 
-        Q(file_path__icontains=query)
-    ).values('id', 'file_path', 'file_content')[:10]  # Limit to 10 results for example
+    # Initialize the suggestions list
+    suggestions = []
 
-    # Format the results
-    suggestions = [
-        {
-            'id': result['id'],
-            'name': result['file_path'],
-            'content_preview': result['file_content'][:100]  # Preview of the content
-        }
-        for result in results
-    ]
+    # Search for files where the inverted_index contains the query
+    results = FileAnalysis.objects.all()
+    for result in results:
+        # Deserialize the JSON field into a Python dictionary
+        inverted_index = result.inverted_index
+        # Iterate over the keys in the inverted_index to find partial matches
+        for word in inverted_index.keys():
+            if query in word:  # Check if the query is a substring of the word
+                # Get the positions where the word occurs
+                positions = inverted_index[word]
+                
+                # Split the file_content into words
+                words = result.file_content.split()
+                # Generate previews for each occurrence of the word
+                previews = []
+                for pos in positions:
+                    # Calculate the range for words around the found position
+                    start = max(0, pos - 3)
+                    end = min(len(words), pos + 4)
+                    # Extract the preview and join it into a string
+                    preview = {'text':' '.join(words[start:end]),'position':pos}
+                    print(word,pos)
+                    previews.append(preview)
+                # Add the result to the suggestions list
+                suggestions.append({
+                    'id': result.id,
+                    'name': result.file_path,
+                    'content_previews': previews  # List of previews
+                })
+                break  # Break if a match is found to avoid duplicate entries
 
     # Return the suggestions as JSON
     return JsonResponse(suggestions, safe=False)
