@@ -55,7 +55,7 @@ def process_text(request):
         for position, token in enumerate(filtered_tokens):
             doc = nlp(token.lower())  # Lemmatisation sur la version en minuscule
             for word in doc:
-                if not word.pos_ == 'VERB':
+                if not word.pos_ == 'VERB' and not word.pos_=='AUX':
                     lemma = word.lemma_
                     pos = word.pos_  # Type de mot
 
