@@ -15,10 +15,10 @@ from django.db.models import Q
 from django.db.models.expressions import RawSQL
 
 # bibliotheque de tokenization
-# nltk.download('punkt')
+#nltk.download('punkt')
 
 # Get the French stop words list
-# nltk.download('stopwords')
+#nltk.download('stopwords')
 
 # Define the French stop words set
 french_stopwords = set(stopwords.words('french'))
@@ -32,37 +32,45 @@ def process_text(request):
         uploaded_file = request.FILES['file']
         content = uploaded_file.read().decode('utf-8')
 
+        # Créez une version normalisée pour le traitement des stopwords
+        normalized_content = unidecode.unidecode(content).lower()
+
+        # Calcul du hash du fichier
         file_hash = hashlib.sha256(content.encode('utf-8')).hexdigest()
-        if FileAnalysis.objects.filter(file_hash=file_hash).exists():
-            return JsonResponse({'error': 'File has already been analyzed'}, status=400)
 
+        # Lecture et traitement des stop words
+        with open('app/stop_words_french.txt', 'r', encoding='utf-8') as file:
+            stop_words = set(unidecode.unidecode(word).strip().lower() for word in file)
 
-        with open('app/stop_words_french.json', 'r') as json_file:
-            stp_words = set(json.load(json_file))
-            stp_words = set(unidecode.unidecode(word).lower() for word in stp_words)
+        # Tokenisation du contenu
+        tokens = word_tokenize(content, language='french')  # Utilisez le contenu original ici
 
-        tokens = content.split()
+        # Filtrage des stop words et des tokens non alphabétiques
+        filtered_tokens = [token for token in tokens if token.isalpha() and unidecode.unidecode(token).lower() not in stop_words]
+
+        # Initialisation de l'index inversé
         inverted_index = {}
 
-        for position, token in enumerate(tokens):
-            cleaned_token = token.lower().strip(string.punctuation)
-            unaccented_token = unidecode.unidecode(cleaned_token)  # Normalize for comparison
-            
-            if cleaned_token.isalpha():
-                doc = nlp(cleaned_token)
-                lemma = [word.lemma_ for word in doc if not word.pos_ == 'VERB']
+        # Traitement de chaque token pour la lemmatisation
+        for position, token in enumerate(filtered_tokens):
+            doc = nlp(token.lower())  # Lemmatisation sur la version en minuscule
+            for word in doc:
+                if not word.pos_ == 'VERB':
+                    lemma = word.lemma_
+                    pos = word.pos_  # Type de mot
 
-                if lemma and len(lemma[0])>2:
-                    lemma = lemma[0]
+                    # Vérifiez si le lemme existe dans l'index
                     if lemma not in inverted_index:
-                        inverted_index[lemma] = [position]
+                        inverted_index[lemma] = {'positions': [position], 'pos': pos, 'original': token}  # Conservez le mot original
                     else:
-                        inverted_index[lemma].append(position)
+                        inverted_index[lemma]['positions'].append(position)
 
-        file_analysis = FileAnalysis(file_path=uploaded_file, file_hash=file_hash,file_content=content,inverted_index=inverted_index)
+        # Sauvegarde de l'analyse du fichier
+        file_analysis = FileAnalysis(file_path=uploaded_file, file_hash=file_hash, file_content=content, inverted_index=inverted_index)
         file_analysis.save()
 
         return JsonResponse({'inverted_index': inverted_index})
+
 
 def index(request):
     return HttpResponse("Welcome to My Django App")
