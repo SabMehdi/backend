@@ -26,8 +26,9 @@ SECRET_KEY = 'django-insecure-61r&_p!&=voxg&fi(68d9z(q9vd7p#iz!*7p#=n7ay#9z!cv_s
 DEBUG = True
 
 ALLOWED_HOSTS = ['*']
+CORS_ALLOW_ALL_ORIGINS = True
 CORS_ALLOWED_ORIGINS = [
-    "http://localhost:3000",  # This will allow only specific origins
+    "http://localhost:3000", 
 ]
 
 # Optional: Allow credentials (cookies, authorization headers) to be included in the requests
@@ -46,6 +47,7 @@ INSTALLED_APPS = [
 ] 
 
 MIDDLEWARE = [
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -53,7 +55,6 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    'corsheaders.middleware.CorsMiddleware',
     
 ]
 

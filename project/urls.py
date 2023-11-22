@@ -10,5 +10,7 @@ urlpatterns = [
     path('api/get-inverted-index/<str:file_name>', views.get_inverted_index, name='get_inverted_index'),
     path('api/autocomplete/', views.autocomplete, name='autocomplete'),
     path('api/document-preview/', views.document_preview, name='document_preview'),
+    path('api/search-word', views.search_word, name='search'),
+    path('api/document/<int:document_id>/', views.get_document, name='get_document'),
 
 ]   

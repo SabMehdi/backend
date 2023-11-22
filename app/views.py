@@ -13,6 +13,7 @@ from .models import FileAnalysis
 import hashlib
 from django.db.models import Q
 from django.db.models.expressions import RawSQL
+from django.shortcuts import get_object_or_404
 
 # bibliotheque de tokenization
 #nltk.download('punkt')
@@ -153,3 +154,32 @@ def document_preview(request):
         ]
         return JsonResponse(previews, safe=False)
     return JsonResponse([], safe=False)
+
+
+@csrf_exempt
+def search_word(request):
+    query = request.GET.get('q', '').lower()
+    search_results = []
+
+    # Implement your search logic here
+    # For simplicity, we're filtering FileAnalysis by name
+    results = FileAnalysis.objects.filter(file_content__icontains=query)
+    for result in results:
+        content_previews = []  # Generate content previews for each result
+        # ... (logic to populate content_previews) ...
+        search_results.append({
+            'id': result.id,
+            'name': result.file_path,
+            'content_previews': content_previews
+        })
+
+    return JsonResponse(search_results, safe=False)
+
+@csrf_exempt
+def get_document(request, document_id):
+    document = get_object_or_404(FileAnalysis, id=document_id)
+    return JsonResponse({
+        'id': document.id,
+        'content': document.file_content,
+        # include any other fields you might need
+    })
