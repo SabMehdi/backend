@@ -27,8 +27,8 @@ french_stopwords = set(stopwords.words('french'))
 nlp = spacy.load('fr_core_news_md')
 # Ignore CSRF security measures
 
-def process_text_file(file,path):
-        content=file
+def process_text_file(file_content,file_name,file_path):
+        content=file_content
         # Calcul du hash du fichier
         file_hash = hashlib.sha256(content.encode('utf-8')).hexdigest()
 
@@ -60,7 +60,7 @@ def process_text_file(file,path):
                         inverted_index[lemma]['positions'].append(position)
 
         # Sauvegarde de l'analyse du fichier
-        file_analysis = FileAnalysis(file_path=path, file_hash=file_hash, file_content=content, inverted_index=inverted_index)
+        file_analysis = FileAnalysis(file_path=file_path,file_name=file_name, file_hash=file_hash, file_content=content, inverted_index=inverted_index)
         file_analysis.save()
 
         return 
@@ -77,7 +77,7 @@ def analyze_directory(request):
             print(file_path)
             with open(file_path, 'r', encoding='utf-8') as file:
                 content = file.read()
-                process_text_file(content,file_name)
+                process_text_file(content,file_path=file_path,file_name=file_name)
                 # You can store or log the result as needed
     # Here you can return all_results or just a confirmation message
     return JsonResponse({'status': 'Analysis complete'})
@@ -85,6 +85,7 @@ def analyze_directory(request):
 def process_text(request):
     if request.method == 'POST':
         uploaded_file = request.FILES['file']
+        print(">>>>>>>>>>>>>>>>>>>>>>>>>>>",uploaded_file.name)
         content = uploaded_file.read().decode('utf-8')
 
         # Créez une version normalisée pour le traitement des stopwords
@@ -121,7 +122,7 @@ def process_text(request):
                         inverted_index[lemma]['positions'].append(position)
 
         # Sauvegarde de l'analyse du fichier
-        file_analysis = FileAnalysis(file_path=uploaded_file, file_hash=file_hash, file_content=content, inverted_index=inverted_index)
+        file_analysis = FileAnalysis(file_name=uploaded_file, file_hash=file_hash, file_content=content, inverted_index=inverted_index)
         file_analysis.save()
 
         return JsonResponse({'inverted_index': inverted_index})
@@ -133,14 +134,14 @@ def index(request):
 
 @csrf_exempt
 def get_file_names(request):
-    file_names = [result.file_path for result in FileAnalysis.objects.all()]
+    file_names = [result.file_name for result in FileAnalysis.objects.all()]
     return JsonResponse(file_names, safe=False)
 
 
 @csrf_exempt
 def get_inverted_index(request, file_name):
     try:
-        lemmatization_result = FileAnalysis.objects.get(file_path=file_name)
+        lemmatization_result = FileAnalysis.objects.get(file_name=file_name)
         inverted_index = lemmatization_result.inverted_index  # Access the correct attribute
         return JsonResponse(inverted_index, safe=False)
     except FileAnalysis.DoesNotExist:
@@ -209,21 +210,34 @@ def document_preview(request):
         return JsonResponse(previews, safe=False)
     return JsonResponse([], safe=False)
 
+import re
 
 @csrf_exempt
 def search_word(request):
     query = request.GET.get('q', '').lower()
     search_results = []
 
-    # Implement your search logic here
-    # For simplicity, we're filtering FileAnalysis by name
     results = FileAnalysis.objects.filter(file_content__icontains=query)
     for result in results:
-        content_previews = []  # Generate content previews for each result
-        # ... (logic to populate content_previews) ...
+        content_previews = []
+
+        # Find all occurrences of the query in the file content
+        start_positions = [m.start() for m in re.finditer(query, result.file_content.lower())]
+
+        # Generate previews for each occurrence
+        for pos in start_positions:
+            start = max(pos - 50, 0)  # Get 20 characters before the query
+            end = min(pos + 50 + len(query), len(result.file_content))  # Get 20 characters after the query
+            preview = result.file_content[start:end]
+            content_previews.append({
+                'text': preview,
+                'position': pos
+            })
+
         search_results.append({
             'id': result.id,
-            'name': result.file_path,
+            'name': result.file_name,
+            'path':result.file_path,
             'content_previews': content_previews
         })
 
