@@ -250,5 +250,7 @@ def get_document(request, document_id):
     return JsonResponse({
         'id': document.id,
         'content': document.file_content,
+        'name':document.file_name,
+        'path':document.file_path
         # include any other fields you might need
     })
