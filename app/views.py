@@ -176,6 +176,7 @@ def search_word(request):
     return JsonResponse(search_results, safe=False)
 
 @csrf_exempt
+@csrf_exempt
 def get_document(request, document_id):
     document = get_object_or_404(FileAnalysis, id=document_id)
     return JsonResponse({
