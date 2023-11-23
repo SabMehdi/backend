@@ -14,6 +14,7 @@ import hashlib
 from django.db.models import Q
 from django.db.models.expressions import RawSQL
 from django.shortcuts import get_object_or_404
+import os
 
 # bibliotheque de tokenization
 #nltk.download('punkt')
@@ -26,7 +27,60 @@ french_stopwords = set(stopwords.words('french'))
 nlp = spacy.load('fr_core_news_md')
 # Ignore CSRF security measures
 
+def process_text_file(file,path):
+        content=file
+        # Calcul du hash du fichier
+        file_hash = hashlib.sha256(content.encode('utf-8')).hexdigest()
 
+        # Lecture et traitement des stop words
+        with open('app/stop_words_french.txt', 'r', encoding='utf-8') as file:
+            stop_words = set(unidecode.unidecode(word).strip().lower() for word in file)
+
+        # Tokenisation du contenu
+        tokens = word_tokenize(content, language='french')  # Utilisez le contenu original ici
+
+        # Filtrage des stop words et des tokens non alphabétiques
+        filtered_tokens = [token for token in tokens if token.isalpha() and unidecode.unidecode(token).lower() not in stop_words]
+
+        # Initialisation de l'index inversé
+        inverted_index = {}
+
+        # Traitement de chaque token pour la lemmatisation
+        for position, token in enumerate(filtered_tokens):
+            doc = nlp(token.lower())  # Lemmatisation sur la version en minuscule
+            for word in doc:
+                if not word.pos_ == 'VERB' and not word.pos_=='AUX':
+                    lemma = word.lemma_
+                    pos = word.pos_  # Type de mot
+
+                    # Vérifiez si le lemme existe dans l'index
+                    if lemma not in inverted_index:
+                        inverted_index[lemma] = {'positions': [position], 'pos': pos, 'original': token}  # Conservez le mot original
+                    else:
+                        inverted_index[lemma]['positions'].append(position)
+
+        # Sauvegarde de l'analyse du fichier
+        file_analysis = FileAnalysis(file_path=path, file_hash=file_hash, file_content=content, inverted_index=inverted_index)
+        file_analysis.save()
+
+        return 
+
+@csrf_exempt
+def analyze_directory(request):
+    directory_path = 'C:/Users/saber/Desktop/work'  # Set the directory path
+
+    all_results = []  # Store results for all files
+
+    for root, _, files in os.walk(directory_path):
+        for file_name in files:
+            file_path = os.path.join(root, file_name)
+            print(file_path)
+            with open(file_path, 'r', encoding='utf-8') as file:
+                content = file.read()
+                process_text_file(content,file_name)
+                # You can store or log the result as needed
+    # Here you can return all_results or just a confirmation message
+    return JsonResponse({'status': 'Analysis complete'})
 @csrf_exempt
 def process_text(request):
     if request.method == 'POST':
@@ -175,7 +229,7 @@ def search_word(request):
 
     return JsonResponse(search_results, safe=False)
 
-@csrf_exempt
+
 @csrf_exempt
 def get_document(request, document_id):
     document = get_object_or_404(FileAnalysis, id=document_id)
