@@ -166,3 +166,4 @@ project/__pycache__/settings.cpython-311.pyc
 project/__pycache__/__init__.cpython-311.pyc
 app/__pycache__/views.cpython-311.pyc
 app/__pycache__/__init__.cpython-311.pyc
+db.sqlite3
