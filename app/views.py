@@ -233,6 +233,7 @@ def search_word(request):
                 'text': preview,
                 'position': pos
             })
+            print(pos)
 
         search_results.append({
             'id': result.id,
@@ -251,6 +252,6 @@ def get_document(request, document_id):
         'id': document.id,
         'content': document.file_content,
         'name':document.file_name,
-        'path':document.file_path
+        'path':document.file_path,
         # include any other fields you might need
     })

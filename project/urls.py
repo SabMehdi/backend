@@ -13,5 +13,4 @@ urlpatterns = [
     path('api/search-word', views.search_word, name='search'),
     path('api/document/<int:document_id>/', views.get_document, name='get_document'),
     path('api/analyze_directory/', views.analyze_directory, name='analyze_directory'),
-
 ]   
