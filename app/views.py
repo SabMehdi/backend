@@ -15,7 +15,8 @@ from django.db.models import Q
 from django.db.models.expressions import RawSQL
 from django.shortcuts import get_object_or_404
 import os
-
+from bs4 import BeautifulSoup
+from PyPDF2 import PdfReader
 # bibliotheque de tokenization
 #nltk.download('punkt')
 
@@ -27,59 +28,90 @@ french_stopwords = set(stopwords.words('french'))
 nlp = spacy.load('fr_core_news_md')
 # Ignore CSRF security measures
 
+
 def process_text_file(file_content,file_name,file_path):
+    
+    if file_path.endswith('.pdf'):
+        try:
+            with open(file_path, 'rb') as file:  # Open in binary mode
+                reader = PdfReader(file)
+                text = ''
+                for page in reader.pages:
+                    text += page.extract_text() or ''
+        except Exception as e:
+            print(f"Error processing PDF file {file_path}: {e}")
+            return
+    elif file_path.endswith('.html') or file_path.endswith('.htm'):
+        try:
+            with open(file_path, 'r', encoding='utf-8') as file:
+                soup = BeautifulSoup(file, 'html.parser')
+                text = soup.get_text()  # Extract text from HTML
+        except Exception as e:
+            print(f"Error processing HTML file {file_path}: {e}")
+            return None
+    
+    if(len(file_content)==0):
+        content=text
+    else:
         content=file_content
-        # Calcul du hash du fichier
-        file_hash = hashlib.sha256(content.encode('utf-8')).hexdigest()
+    # Calcul du hash du fichier
+    file_hash = hashlib.sha256(file_path.encode('utf-8')).hexdigest()
+    print(">>>>>>>>>> "+file_name+" <<<<<< "+ file_path)
+    # Lecture et traitement des stop words
+    with open('app/stop_words_french.txt', 'r', encoding='utf-8') as file:
+        stop_words = set(unidecode.unidecode(word).strip().lower() for word in file)
 
-        # Lecture et traitement des stop words
-        with open('app/stop_words_french.txt', 'r', encoding='utf-8') as file:
-            stop_words = set(unidecode.unidecode(word).strip().lower() for word in file)
+    # Tokenisation du contenu
+    tokens = word_tokenize(content, language='french')  # Utilisez le contenu original ici
 
-        # Tokenisation du contenu
-        tokens = word_tokenize(content, language='french')  # Utilisez le contenu original ici
+    # Filtrage des stop words et des tokens non alphabétiques
+    filtered_tokens = [token for token in tokens if token.isalpha() and unidecode.unidecode(token).lower() not in stop_words]
 
-        # Filtrage des stop words et des tokens non alphabétiques
-        filtered_tokens = [token for token in tokens if token.isalpha() and unidecode.unidecode(token).lower() not in stop_words]
+    # Initialisation de l'index inversé
+    inverted_index = {}
 
-        # Initialisation de l'index inversé
-        inverted_index = {}
+    # Traitement de chaque token pour la lemmatisation
+    for position, token in enumerate(filtered_tokens):
+        doc = nlp(token.lower())  # Lemmatisation sur la version en minuscule
+        for word in doc:
+            if not word.pos_ == 'VERB' and not word.pos_=='AUX':
+                lemma = word.lemma_
+                pos = word.pos_  # Type de mot
 
-        # Traitement de chaque token pour la lemmatisation
-        for position, token in enumerate(filtered_tokens):
-            doc = nlp(token.lower())  # Lemmatisation sur la version en minuscule
-            for word in doc:
-                if not word.pos_ == 'VERB' and not word.pos_=='AUX':
-                    lemma = word.lemma_
-                    pos = word.pos_  # Type de mot
+                # Vérifiez si le lemme existe dans l'index
+                if lemma not in inverted_index:
+                    inverted_index[lemma] = {'positions': [position], 'pos': pos, 'original': token}  # Conservez le mot original
+                else:
+                    inverted_index[lemma]['positions'].append(position)
 
-                    # Vérifiez si le lemme existe dans l'index
-                    if lemma not in inverted_index:
-                        inverted_index[lemma] = {'positions': [position], 'pos': pos, 'original': token}  # Conservez le mot original
-                    else:
-                        inverted_index[lemma]['positions'].append(position)
+    # Sauvegarde de l'analyse du fichier
+    file_analysis = FileAnalysis(file_path=file_path,file_name=file_name, file_hash=file_hash, file_content=content, inverted_index=inverted_index)
+    file_analysis.save()
 
-        # Sauvegarde de l'analyse du fichier
-        file_analysis = FileAnalysis(file_path=file_path,file_name=file_name, file_hash=file_hash, file_content=content, inverted_index=inverted_index)
-        file_analysis.save()
+    return 
 
-        return 
 
 @csrf_exempt
 def analyze_directory(request):
     directory_path = 'C:/Users/saber/Desktop/work'  # Set the directory path
 
-    all_results = []  # Store results for all files
-
     for root, _, files in os.walk(directory_path):
         for file_name in files:
-            file_path = os.path.join(root, file_name)
+            file_path = os.path.abspath(os.path.join(root, file_name))
             print(file_path)
-            with open(file_path, 'r', encoding='utf-8') as file:
-                content = file.read()
-                process_text_file(content,file_path=file_path,file_name=file_name)
-                # You can store or log the result as needed
-    # Here you can return all_results or just a confirmation message
+
+            if file_path.endswith('.pdf'):
+                # For PDF files, use a different approach
+                process_text_file("", file_name,file_path)
+            elif file_path.endswith('.html') or file_path.endswith('.htm'):
+                # Process HTML files
+                process_text_file("", file_name,file_path)
+            else:
+                # Process other text files
+                with open(file_path, 'r', encoding='utf-8') as file:
+                    content = file.read()
+                    process_text_file(content, file_name, file_path)
+
     return JsonResponse({'status': 'Analysis complete'})
 @csrf_exempt
 def process_text(request):
