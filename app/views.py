@@ -17,6 +17,8 @@ from django.shortcuts import get_object_or_404
 import os
 from bs4 import BeautifulSoup
 from PyPDF2 import PdfReader
+from difflib import get_close_matches
+
 # bibliotheque de tokenization
 #nltk.download('punkt')
 
@@ -180,7 +182,6 @@ def get_inverted_index(request, file_name):
         return JsonResponse({'error': 'File not found'}, status=404)
 
 
-# ... rest of your imports and code ...
 
 csrf_exempt
 def autocomplete(request):
@@ -285,5 +286,21 @@ def get_document(request, document_id):
         'content': document.file_content,
         'name':document.file_name,
         'path':document.file_path,
-        # include any other fields you might need
     })
+    
+@csrf_exempt
+def get_suggestions(request):
+    query = request.GET.get('q', '').lower()
+    suggestions = []
+
+    all_words = set()  # Set to store unique words from inverted indexes
+    for file_analysis in FileAnalysis.objects.all():
+        all_words.update(file_analysis.inverted_index.keys())
+
+    suggested_words = get_close_matches(query, all_words, n=3)  # Adjust 'n' as needed
+
+    # Format the suggested words
+    for word in suggested_words:
+        suggestions.append({'word': word})
+
+    return JsonResponse(suggestions, safe=False)
