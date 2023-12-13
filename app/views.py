@@ -95,7 +95,7 @@ def process_text_file(file_content,file_name,file_path):
 
 @csrf_exempt
 def analyze_directory(request):
-    directory_path = 'C:/Users/saber/Desktop/work'  # Set the directory path
+    directory_path = 'C:/Users/saber/Downloads/work'  # Set the directory path
 
     for root, _, files in os.walk(directory_path):
         for file_name in files:
@@ -304,3 +304,68 @@ def get_suggestions(request):
         suggestions.append({'word': word})
 
     return JsonResponse(suggestions, safe=False)
+
+import io
+
+@csrf_exempt
+def process_single_file(request):
+    if request.method == 'POST':
+        uploaded_file = request.FILES['file']
+        file_name = uploaded_file.name
+        file_content = uploaded_file.read()
+
+        # Process the file content based on file type
+        if file_name.endswith('.pdf'):
+            try:
+                reader = PdfReader(io.BytesIO(file_content))
+                text = ''
+                for page in reader.pages:
+                    text += page.extract_text() or ''
+            except Exception as e:
+                print(f"Error processing PDF file {file_name}: {e}")
+                return JsonResponse({'error': 'Error processing PDF file'}, status=500)
+
+        elif file_name.endswith(('.html', '.htm')):
+            try:
+                soup = BeautifulSoup(file_content.decode('utf-8'), 'html.parser')
+                text = soup.get_text()
+            except Exception as e:
+                print(f"Error processing HTML file {file_name}: {e}")
+                return JsonResponse({'error': 'Error processing HTML file'}, status=500)
+
+        else:
+            # Assuming any other file type is plain text
+            text = file_content.decode('utf-8')
+
+        # Tokenization and Analysis Logic
+        file_hash = hashlib.sha256(text.encode('utf-8')).hexdigest()
+        tokens = word_tokenize(text, language='french')
+        with open('app/stop_words_french.txt', 'r', encoding='utf-8') as file:
+            stop_words = set(unidecode.unidecode(word).strip().lower() for word in file)
+
+        filtered_tokens = [token for token in tokens if token.isalpha() and unidecode.unidecode(token).lower() not in stop_words]
+        
+        inverted_index = {}
+        for position, token in enumerate(filtered_tokens):
+            doc = nlp(token.lower())
+            for word in doc:
+                if not word.pos_ == 'VERB' and not word.pos_ == 'AUX':
+                    lemma = word.lemma_
+                    pos = word.pos_
+
+                    if lemma not in inverted_index:
+                        inverted_index[lemma] = {'positions': [position], 'pos': pos, 'original': token}
+                    else:
+                        inverted_index[lemma]['positions'].append(position)
+
+        # Save File Analysis
+        file_analysis = FileAnalysis(
+            file_path=file_name,
+            file_name=file_name,
+            file_hash=file_hash,
+            file_content=text,
+            inverted_index=inverted_index
+        )
+        file_analysis.save()
+
+        return JsonResponse({'processed_data': inverted_index})
