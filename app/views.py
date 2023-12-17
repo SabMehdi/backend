@@ -25,10 +25,8 @@ from difflib import get_close_matches
 # Get the French stop words list
 #nltk.download('stopwords')
 
-# Define the French stop words set
 french_stopwords = set(stopwords.words('french'))
 nlp = spacy.load('fr_core_news_md')
-# Ignore CSRF security measures
 
 
 def process_text_file(file_content,file_name,file_path):
@@ -58,7 +56,6 @@ def process_text_file(file_content,file_name,file_path):
         content=file_content
     # Calcul du hash du fichier
     file_hash = hashlib.sha256(file_path.encode('utf-8')).hexdigest()
-    print(">>>>>>>>>> "+file_name+" <<<<<< "+ file_path)
     # Lecture et traitement des stop words
     with open('app/stop_words_french.txt', 'r', encoding='utf-8') as file:
         stop_words = set(unidecode.unidecode(word).strip().lower() for word in file)
@@ -82,7 +79,7 @@ def process_text_file(file_content,file_name,file_path):
 
                 # Vérifiez si le lemme existe dans l'index
                 if lemma not in inverted_index:
-                    inverted_index[lemma] = {'positions': [position], 'pos': pos, 'original': token}  # Conservez le mot original
+                    inverted_index[lemma] = {'positions': [position], 'pos': pos, 'original': lemma}  # Conservez le mot original
                 else:
                     inverted_index[lemma]['positions'].append(position)
 
@@ -100,7 +97,6 @@ def analyze_directory(request):
     for root, _, files in os.walk(directory_path):
         for file_name in files:
             file_path = os.path.abspath(os.path.join(root, file_name))
-            print(file_path)
 
             if file_path.endswith('.pdf'):
                 # For PDF files, use a different approach
@@ -119,7 +115,6 @@ def analyze_directory(request):
 def process_text(request):
     if request.method == 'POST':
         uploaded_file = request.FILES['file']
-        print(">>>>>>>>>>>>>>>>>>>>>>>>>>>",uploaded_file.name)
         content = uploaded_file.read().decode('utf-8')
 
         # Créez une version normalisée pour le traitement des stopwords
@@ -212,7 +207,6 @@ def autocomplete(request):
                     end = min(len(words), pos + 4)
                     # Extract the preview and join it into a string
                     preview = {'text':' '.join(words[start:end]),'position':pos}
-                    print(word,pos)
                     previews.append(preview)
                 # Add the result to the suggestions list
                 suggestions.append({
@@ -266,7 +260,6 @@ def search_word(request):
                 'text': preview,
                 'position': pos
             })
-            print(pos)
 
         search_results.append({
             'id': result.id,
@@ -369,3 +362,17 @@ def process_single_file(request):
         file_analysis.save()
 
         return JsonResponse({'processed_data': inverted_index})
+    
+@csrf_exempt
+def get_aggregated_inverted_index(request):
+    # Aggregate all words and their total occurrences
+    aggregated_words = {}
+
+    for file_analysis in FileAnalysis.objects.all():
+        inverted_index = file_analysis.inverted_index
+        for word, data in inverted_index.items():
+            if word not in aggregated_words:
+                aggregated_words[word] = 0
+            aggregated_words[word] += len(data['positions'])
+
+    return JsonResponse(aggregated_words)

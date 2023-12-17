@@ -15,5 +15,6 @@ urlpatterns = [
     path('api/analyze_directory/', views.analyze_directory, name='analyze_directory'),
     path('api/get-suggestions', views.get_suggestions, name='get_suggestions'),
     path('api/process-single-file/', views.process_single_file, name='process_single_file'),
+    path('api/get-aggregated-inverted-index/', views.get_aggregated_inverted_index, name='get_aggregated_inverted_index'),
 
 ]   
